@@ -1,0 +1,27 @@
+name: build
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: checkout neoos-kernel (toolchain/build.sh only)
+        # Cloned INSIDE the workspace, not /tmp: hashFiles() below can
+        # only see paths under $GITHUB_WORKSPACE.
+        run: git clone --depth 1 https://github.com/NeoOSOrganization/neoos-kernel neoos-kernel-ref
+      - name: cache cross-toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/opt/cross-x86_64-elf
+          key: x86_64-elf-toolchain-${{ hashFiles('neoos-kernel-ref/toolchain/build.sh') }}
+      - name: build cross-toolchain (skips if cache hit)
+        run: neoos-kernel-ref/toolchain/build.sh
+      - name: build
+        run: |
+          export PATH="$HOME/opt/cross-x86_64-elf/bin:$PATH"
+          make
+      - name: verify output
+        run: |
+          test -f build-output/lib/libneoos.a
+          test -f build-output/lib/crt0.o
+          test -d build-output/include
